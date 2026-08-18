@@ -5,6 +5,7 @@ import { HasGeometryTrait, Node, Paint } from "../api_types";
 import { calculateRectangleFromBoundingBox } from "../common/commonPosition";
 import { isLikelyIcon } from "./iconDetection";
 import { AltNode } from "../alt_api_types";
+import { getBackendHost } from "../host";
 
 // Performance tracking counters
 export let getNodeByIdAsyncTime = 0;
@@ -256,10 +257,12 @@ function adjustChildrenOrder(node: any) {
 }
 
 /**
- * Recursively process both JSON node and Figma node to update with data not available in JSON
- * This now includes the functionality from convertNodeToAltNode
+ * Recursively process a JSON node to fill in data the REST export doesn't
+ * carry. This now includes the functionality from convertNodeToAltNode.
+ * Operates purely on the JSON tree — the two pieces of data that used to
+ * require a live Figma node (styled text runs, the initial JSON_REST_V1
+ * document) now go through `getBackendHost()`, keyed by node id.
  * @param jsonNode The JSON node to process
- * @param figmaNode The corresponding Figma node
  * @param settings Plugin settings
  * @param parentNode Optional parent node reference to set
  * @param parentCumulativeRotation Optional parent cumulative rotation to inherit
@@ -267,7 +270,6 @@ function adjustChildrenOrder(node: any) {
  */
 const processNodePair = async (
   jsonNode: AltNode,
-  figmaNode: SceneNode,
   settings: PluginSettings,
   parentNode?: AltNode,
   parentCumulativeRotation: number = 0,
@@ -295,13 +297,7 @@ const processNodePair = async (
   ) {
     // Convert to rectangle
     (jsonNode as any).type = "RECTANGLE";
-    return processNodePair(
-      jsonNode,
-      figmaNode,
-      settings,
-      parentNode,
-      parentCumulativeRotation,
-    );
+    return processNodePair(jsonNode, settings, parentNode, parentCumulativeRotation);
   }
 
   if ("rotation" in jsonNode && jsonNode.rotation) {
@@ -312,30 +308,15 @@ const processNodePair = async (
   if (nodeType === "GROUP" && jsonNode.children) {
     const processedChildren = [];
 
-    if (
-      Array.isArray(jsonNode.children) &&
-      figmaNode &&
-      "children" in figmaNode
-    ) {
+    if (Array.isArray(jsonNode.children)) {
       // Get visible JSON children (filters out nodes with visible: false)
       const visibleJsonChildren = jsonNode.children.filter(
         (child) => child.visible !== false,
       ) as AltNode[];
 
-      // Map figma children to their IDs for matching
-      const figmaChildrenById = new Map();
-      figmaNode.children.forEach((child) => {
-        figmaChildrenById.set(child.id, child);
-      });
-
-      // Process all visible JSON children that have matching Figma nodes
       for (const child of visibleJsonChildren) {
-        const figmaChild = figmaChildrenById.get(child.id);
-        if (!figmaChild) continue; // Skip if no matching Figma node found
-
         const processedChild = await processNodePair(
           child,
-          figmaChild,
           settings,
           parentNode, // The group's parent
           parentCumulativeRotation + (jsonNode.rotation || 0),
@@ -380,25 +361,26 @@ const processNodePair = async (
       : `${cleanName}_${count.toString().padStart(2, "0")}`;
 
   // Handle text-specific properties
-  if (figmaNode.type === "TEXT") {
+  if (nodeType === "TEXT") {
     const getSegmentsStart = Date.now();
     getStyledTextSegmentsCalls++;
-    let styledTextSegments = figmaNode.getStyledTextSegments([
-      "fontName",
-      "fills",
-      "fontSize",
-      "fontWeight",
-      "hyperlink",
-      "indentation",
-      "letterSpacing",
-      "lineHeight",
-      "listOptions",
-      "textCase",
-      "textDecoration",
-      "textStyleId",
-      "fillStyleId",
-      "openTypeFeatures",
-    ]);
+    let styledTextSegments =
+      (await getBackendHost().getStyledTextSegments?.(jsonNode.id, [
+        "fontName",
+        "fills",
+        "fontSize",
+        "fontWeight",
+        "hyperlink",
+        "indentation",
+        "letterSpacing",
+        "lineHeight",
+        "listOptions",
+        "textCase",
+        "textDecoration",
+        "textStyleId",
+        "fillStyleId",
+        "openTypeFeatures",
+      ])) ?? [];
     getStyledTextSegmentsTime += Date.now() - getSegmentsStart;
 
     // Assign unique IDs to each segment
@@ -551,23 +533,16 @@ const processNodePair = async (
     jsonNode.layoutSizingVertical = "FIXED";
   }
 
-  // Process children recursively if both have children
+  // Process children recursively
   if (
     "children" in jsonNode &&
     jsonNode.children &&
-    Array.isArray(jsonNode.children) &&
-    "children" in figmaNode
+    Array.isArray(jsonNode.children)
   ) {
     // Get only visible JSON children
     const visibleJsonChildren = jsonNode.children.filter(
       (child) => child.visible !== false,
     ) as AltNode[];
-
-    // Create a map of figma children by ID for easier matching
-    const figmaChildrenById = new Map();
-    figmaNode.children.forEach((child) => {
-      figmaChildrenById.set(child.id, child);
-    });
 
     const cumulative =
       parentCumulativeRotation +
@@ -576,14 +551,9 @@ const processNodePair = async (
     // Process children and handle potential null returns
     const processedChildren = [];
 
-    // Process all visible JSON children that have matching Figma nodes
     for (const child of visibleJsonChildren) {
-      const figmaChild = figmaChildrenById.get(child.id);
-      if (!figmaChild) continue; // Skip if no matching Figma node found
-
       const processedChild = await processNodePair(
         child,
-        figmaChild,
         settings,
         jsonNode,
         cumulative,
@@ -625,13 +595,16 @@ const processNodePair = async (
 };
 
 /**
- * Convert Figma nodes to JSON format with parent references added
- * @param nodes The Figma nodes to convert to JSON
+ * Convert Figma nodes to JSON format with parent references added. Takes
+ * just node ids — not live `SceneNode`s — since the REST document for each
+ * id now comes from `getBackendHost().getNodeDocument()`, which a
+ * REST-backed host can satisfy from JSON it already has.
+ * @param nodes The nodes to convert to JSON, identified by id
  * @param settings Plugin settings
  * @returns JSON representation of the nodes with parent references
  */
 export const nodesToJSON = async (
-  nodes: ReadonlyArray<SceneNode>,
+  nodes: ReadonlyArray<{ id: string }>,
   settings: PluginSettings,
 ): Promise<Node[]> => {
   // Reset name counters for each conversion
@@ -640,17 +613,22 @@ export const nodesToJSON = async (
   // First get the JSON representation of nodes with rotation handling
   const nodeResults = await Promise.all(
     nodes.map(async (node) => {
-      // Export node to JSON
-      const nodeDoc = (
-        (await node.exportAsync({
-          format: "JSON_REST_V1",
-        })) as any
-      ).document;
+      // Fetch the REST document for this node
+      const nodeDoc = (await getBackendHost().getNodeDocument?.(
+        node.id,
+      )) as any;
+      if (!nodeDoc) {
+        throw new Error(
+          `No backend host getNodeDocument() available for node ${node.id}. ` +
+            "Call setBackendHost() with a host that implements it before " +
+            "running nodesToJSON() outside the Figma plugin sandbox.",
+        );
+      }
 
       let nodeCumulativeRotation = 0;
 
       // Wire GROUPs into FRAME.
-      if (node.type === "GROUP") {
+      if (nodeDoc.type === "GROUP") {
         nodeDoc.type = "FRAME";
 
         // Fix rotation for children.
@@ -667,11 +645,11 @@ export const nodesToJSON = async (
     }),
   );
 
-  if (nodes.length > 0) {
+  if (nodeResults.length > 0) {
     console.log("[debug] initial node summary", {
-      id: nodes[0].id,
-      type: nodes[0].type,
-      name: nodes[0].name,
+      id: nodeResults[0].nodeDoc.id,
+      type: nodeResults[0].nodeDoc.type,
+      name: nodeResults[0].nodeDoc.name,
     });
   }
 
@@ -679,14 +657,13 @@ export const nodesToJSON = async (
     `[benchmark][inside nodesToJSON] JSON_REST_V1 export: ${Date.now() - exportJsonStart}ms`,
   );
 
-  // Now process each top-level node pair (JSON node + Figma node)
+  // Now process each top-level node
   const processNodesStart = Date.now();
   const result: Node[] = [];
 
   for (let i = 0; i < nodes.length; i++) {
     const processedNode = await processNodePair(
       nodeResults[i].nodeDoc,
-      nodes[i],
       settings,
       undefined,
       nodeResults[i].nodeCumulativeRotation,

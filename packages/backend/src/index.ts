@@ -9,10 +9,12 @@ export {
   replaceProjectImagePlaceholders,
 } from "./zipGenerator";
 export { run } from "./code";
+export { nodesToJSON } from "./altNodes/jsonNodeConversion";
 export * from "./messaging";
 export {
   setBackendHost,
   getBackendHost,
   type BackendHost,
   type ExportRequest,
+  type StyledTextSegmentField,
 } from "./host";

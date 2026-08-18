@@ -80,7 +80,7 @@ describe("resolveStyledTextSegmentsFromRest", () => {
     ]);
   });
 
-  it("joins indentation and listOptions from the line at the run's start", () => {
+  it("splits into a run per line when indentation or listOptions changes at a line boundary", () => {
     const segments = resolveStyledTextSegmentsFromRest(
       baseNode({
         characters: "one\ntwo",
@@ -92,11 +92,90 @@ describe("resolveStyledTextSegmentsFromRest", () => {
 
     expect(segments).toEqual([
       {
+        characters: "one\n",
+        start: 0,
+        end: 4,
+        indentation: 0,
+        listOptions: { type: "ORDERED" },
+      },
+      {
+        characters: "two",
+        start: 4,
+        end: 7,
+        indentation: 2,
+        listOptions: { type: "UNORDERED" },
+      },
+    ]);
+  });
+
+  it("keeps one run across a line boundary when indentation and listOptions are unchanged", () => {
+    const segments = resolveStyledTextSegmentsFromRest(
+      baseNode({
+        characters: "one\ntwo",
+        lineTypes: ["NONE", "NONE"],
+        lineIndentations: [0, 0],
+      }),
+      ["indentation", "listOptions"],
+    );
+
+    expect(segments).toEqual([
+      {
         characters: "one\ntwo",
         start: 0,
         end: 7,
         indentation: 0,
+        listOptions: { type: "NONE" },
+      },
+    ]);
+  });
+
+  it("indexes line metadata by UTF-16 code unit, not Unicode code point", () => {
+    // "😀" is a surrogate pair — 1 code point, 2 UTF-16 units. The override
+    // boundary below lands exactly on the "\n" (UTF-16 index 2). A
+    // code-point-indexed line array is one short there and misreads that
+    // run as already being on line 1, instead of the line the "\n" itself
+    // still belongs to.
+    const segments = resolveStyledTextSegmentsFromRest(
+      baseNode({
+        characters: "😀\ntwo",
+        characterStyleOverrides: [0, 0, 1, 1, 1, 1],
+        styleOverrideTable: { "1": { fontWeight: 700 } },
+        lineTypes: ["ORDERED", "UNORDERED"],
+        lineIndentations: [0, 2],
+      }),
+      ["fontWeight", "indentation", "listOptions"],
+    );
+
+    expect(segments).toEqual([
+      {
+        characters: "😀",
+        start: 0,
+        end: 2,
+        fontWeight: 400,
+        indentation: 0,
         listOptions: { type: "ORDERED" },
+      },
+      {
+        // The override boundary lands exactly on "\n" (UTF-16 index 2) —
+        // it still reports line 0's metadata, proving the "\n" itself was
+        // correctly attributed to line 0 and not line 1.
+        characters: "\n",
+        start: 2,
+        end: 3,
+        fontWeight: 700,
+        indentation: 0,
+        listOptions: { type: "ORDERED" },
+      },
+      {
+        // "two" starts on line 1, whose metadata differs from line 0's —
+        // that's a separate run split (line-boundary fix), not the bug
+        // under test here.
+        characters: "two",
+        start: 3,
+        end: 6,
+        fontWeight: 700,
+        indentation: 2,
+        listOptions: { type: "UNORDERED" },
       },
     ]);
   });

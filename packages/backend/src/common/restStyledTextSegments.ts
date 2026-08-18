@@ -37,12 +37,16 @@ const mergeStyle = (
   override: TypeStyle | undefined,
 ): TypeStyle => (override ? { ...base, ...override } : base);
 
+// Indexed by UTF-16 code unit, not Unicode code point, to line up with
+// `characterStyleOverrides`/`runStart`/`.slice()` below — a `for...of` loop
+// walks code points, so an astral character (e.g. an emoji) before a
+// newline would throw those offsets out of sync with everything else here.
 const lineIndexPerCharacter = (characters: string): number[] => {
   const lines: number[] = [];
   let line = 0;
-  for (const ch of characters) {
+  for (let i = 0; i < characters.length; i++) {
     lines.push(line);
-    if (ch === "\n") line++;
+    if (characters[i] === "\n") line++;
   }
   return lines;
 };
@@ -170,7 +174,18 @@ export const resolveStyledTextSegmentsFromRest = (
 
   for (let i = 1; i < characters.length; i++) {
     const index = overrides[i] ?? 0;
-    if (index !== runOverride) {
+    // A line boundary can change `indentation`/`listOptions` with no
+    // accompanying style override — Figma's own getStyledTextSegments()
+    // splits there too, so a plain override-index comparison under-splits.
+    const currentLine = lineIndex[i] ?? 0;
+    const runLine = lineIndex[runStart] ?? 0;
+    const lineMetadataChanged =
+      currentLine !== runLine &&
+      ((node.lineIndentations[currentLine] ?? 0) !==
+        (node.lineIndentations[runLine] ?? 0) ||
+        (node.lineTypes[currentLine] ?? "NONE") !==
+          (node.lineTypes[runLine] ?? "NONE"));
+    if (index !== runOverride || lineMetadataChanged) {
       flushRun(i);
       runStart = i;
       runOverride = index;

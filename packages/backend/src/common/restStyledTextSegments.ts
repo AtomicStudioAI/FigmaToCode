@@ -145,6 +145,8 @@ export const resolveStyledTextSegmentsFromRest = (
   const lineIndex = lineIndexPerCharacter(characters);
   const overrides = node.characterStyleOverrides ?? [];
   const keys = ["characters", "start", "end", ...fields] as const;
+  const watchIndentation = fields.includes("indentation");
+  const watchListOptions = fields.includes("listOptions");
 
   const segments: StyledTextSegmentSubset[] = [];
   let runStart = 0;
@@ -176,15 +178,19 @@ export const resolveStyledTextSegmentsFromRest = (
     const index = overrides[i] ?? 0;
     // A line boundary can change `indentation`/`listOptions` with no
     // accompanying style override — Figma's own getStyledTextSegments()
-    // splits there too, so a plain override-index comparison under-splits.
+    // splits there too, but only for fields actually requested: it
+    // documents that segments split "whenever the value of any [requested]
+    // property changes," not on unrequested ones.
     const currentLine = lineIndex[i] ?? 0;
     const runLine = lineIndex[runStart] ?? 0;
     const lineMetadataChanged =
       currentLine !== runLine &&
-      ((node.lineIndentations[currentLine] ?? 0) !==
-        (node.lineIndentations[runLine] ?? 0) ||
-        (node.lineTypes[currentLine] ?? "NONE") !==
-          (node.lineTypes[runLine] ?? "NONE"));
+      ((watchIndentation &&
+        (node.lineIndentations[currentLine] ?? 0) !==
+          (node.lineIndentations[runLine] ?? 0)) ||
+        (watchListOptions &&
+          (node.lineTypes[currentLine] ?? "NONE") !==
+            (node.lineTypes[runLine] ?? "NONE")));
     if (index !== runOverride || lineMetadataChanged) {
       flushRun(i);
       runStart = i;

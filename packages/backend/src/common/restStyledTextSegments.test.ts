@@ -129,6 +129,62 @@ describe("resolveStyledTextSegmentsFromRest", () => {
     ]);
   });
 
+  it("does not split on a line-metadata change when that field wasn't requested", () => {
+    const segments = resolveStyledTextSegmentsFromRest(
+      baseNode({
+        characters: "one\ntwo",
+        lineTypes: ["ORDERED", "UNORDERED"],
+        lineIndentations: [0, 2],
+      }),
+      ["fontWeight"],
+    );
+
+    expect(segments).toEqual([
+      { characters: "one\ntwo", start: 0, end: 7, fontWeight: 400 },
+    ]);
+  });
+
+  it("splits on indentation alone when only indentation was requested", () => {
+    const segments = resolveStyledTextSegmentsFromRest(
+      baseNode({
+        characters: "one\ntwo",
+        // listOptions differs across the line boundary too, but wasn't
+        // requested — it must not influence the split decision here.
+        lineTypes: ["ORDERED", "UNORDERED"],
+        lineIndentations: [0, 2],
+      }),
+      ["indentation"],
+    );
+
+    expect(segments).toEqual([
+      { characters: "one\n", start: 0, end: 4, indentation: 0 },
+      { characters: "two", start: 4, end: 7, indentation: 2 },
+    ]);
+  });
+
+  it("splits on listOptions alone when only listOptions was requested", () => {
+    const segments = resolveStyledTextSegmentsFromRest(
+      baseNode({
+        characters: "one\ntwo",
+        lineTypes: ["ORDERED", "UNORDERED"],
+        // indentation differs across the line boundary too, but wasn't
+        // requested — it must not influence the split decision here.
+        lineIndentations: [0, 2],
+      }),
+      ["listOptions"],
+    );
+
+    expect(segments).toEqual([
+      {
+        characters: "one\n",
+        start: 0,
+        end: 4,
+        listOptions: { type: "ORDERED" },
+      },
+      { characters: "two", start: 4, end: 7, listOptions: { type: "UNORDERED" } },
+    ]);
+  });
+
   it("indexes line metadata by UTF-16 code unit, not Unicode code point", () => {
     // "😀" is a surrogate pair — 1 code point, 2 UTF-16 units. The override
     // boundary below lands exactly on the "\n" (UTF-16 index 2). A

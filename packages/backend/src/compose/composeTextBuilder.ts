@@ -3,6 +3,7 @@ import { numberToFixedString } from "../common/numToAutoFixed";
 import { ComposeDefaultBuilder } from "./composeDefaultBuilder";
 import { rgbTo6hex } from "../common/color";
 import { retrieveTopFill } from "../common/retrieveFill";
+import { getMixed } from "../host";
 
 // Cache static mappings for performance
 const FONT_WEIGHT_MAP: Record<number, string> = {
@@ -73,7 +74,7 @@ export class ComposeTextBuilder extends ComposeDefaultBuilder {
 
     // Font size
     if (
-      node.fontSize !== figma.mixed &&
+      node.fontSize !== getMixed() &&
       typeof node.fontSize === "number" &&
       node.fontSize > 0
     ) {
@@ -82,7 +83,7 @@ export class ComposeTextBuilder extends ComposeDefaultBuilder {
 
     // Font weight
     if (
-      node.fontWeight !== figma.mixed &&
+      node.fontWeight !== getMixed() &&
       typeof node.fontWeight === "number"
     ) {
       const weight = this.mapFontWeight(node.fontWeight);
@@ -99,7 +100,7 @@ export class ComposeTextBuilder extends ComposeDefaultBuilder {
     }
 
     // Letter spacing
-    if (node.letterSpacing !== figma.mixed && node.letterSpacing !== 0) {
+    if (node.letterSpacing !== getMixed() && node.letterSpacing !== 0) {
       const spacing = commonLetterSpacing(
         node.letterSpacing,
         node.fontSize as number,
@@ -109,7 +110,7 @@ export class ComposeTextBuilder extends ComposeDefaultBuilder {
 
     // Line height
     if (
-      node.lineHeight !== figma.mixed &&
+      node.lineHeight !== getMixed() &&
       typeof node.lineHeight === "object" &&
       node.lineHeight.unit === "PIXELS"
     ) {

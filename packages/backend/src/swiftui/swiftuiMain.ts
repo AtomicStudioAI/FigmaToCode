@@ -9,6 +9,7 @@ import { PluginSettings } from "types";
 import { addWarning } from "../common/commonConversionWarnings";
 import { getVisibleNodes } from "../common/nodeVisibility";
 import { getPlaceholderImage } from "../common/images";
+import { getMixed } from "../host";
 
 let localSettings: PluginSettings;
 let previousExecutionCache: string[];
@@ -160,7 +161,7 @@ const getSwiftUIImage = (node: SceneNode): string => {
 
   const fills = node.fills;
   const fill =
-    fills !== figma.mixed && Array.isArray(fills)
+    fills !== getMixed() && Array.isArray(fills)
       ? [...fills].reverse().find((candidate) => candidate.visible !== false)
       : undefined;
   if (!fill || fill.type !== "IMAGE") {

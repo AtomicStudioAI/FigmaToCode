@@ -1,4 +1,5 @@
 import { BorderSide } from "types";
+import { getMixed } from "../host";
 
 export const commonStroke = (
   node: SceneNode,
@@ -23,7 +24,7 @@ export const commonStroke = (
       right: node.strokeRightWeight / divideBy,
       bottom: node.strokeBottomWeight / divideBy,
     };
-  } else if (node.strokeWeight !== figma.mixed && node.strokeWeight !== 0) {
+  } else if (node.strokeWeight !== getMixed() && node.strokeWeight !== 0) {
     return { all: node.strokeWeight / divideBy };
   }
 

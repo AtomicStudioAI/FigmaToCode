@@ -10,3 +10,9 @@ export {
 } from "./zipGenerator";
 export { run } from "./code";
 export * from "./messaging";
+export {
+  setBackendHost,
+  getBackendHost,
+  type BackendHost,
+  type ExportRequest,
+} from "./host";

@@ -10,6 +10,7 @@ import {
 } from "./builderImpl/composeAutoLayout";
 import { PluginSettings } from "types";
 import { addWarning } from "../common/commonConversionWarnings";
+import { getMixed } from "../host";
 import { getVisibleNodes } from "../common/nodeVisibility";
 
 let localSettings: PluginSettings;
@@ -204,7 +205,7 @@ const composeContainer = (node: SceneNode, child: string): string => {
 
   if (
     "fills" in node &&
-    node.fills !== figma.mixed &&
+    node.fills !== getMixed() &&
     retrieveTopFill(node.fills as any)?.type === "IMAGE"
   ) {
     addWarning("Image fills are replaced with placeholders in Compose");

@@ -28,6 +28,7 @@ import {
   formatStyleAttribute,
 } from "../common/commonFormatAttributes";
 import { HTMLSettings } from "types";
+import { getMixed } from "../host";
 import {
   cssCollection,
   generateUniqueClassName,
@@ -300,7 +301,7 @@ export class HtmlDefaultBuilder {
       this.addStyles(formatWithJSX("background", this.isJSX, backgroundValues));
 
       // Add blend mode property if multiple fills exist with different blend modes
-      if (paintArray !== figma.mixed) {
+      if (paintArray !== getMixed()) {
         const blendModes = this.buildBackgroundBlendModes(paintArray);
         if (blendModes) {
           this.addStyles(

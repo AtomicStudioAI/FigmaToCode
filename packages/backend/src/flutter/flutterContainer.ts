@@ -14,6 +14,7 @@ import { numberToFixedString } from "../common/numToAutoFixed";
 import { getCommonRadius } from "../common/commonRadius";
 import { commonStroke } from "../common/commonStroke";
 import { generateRotationMatrix } from "./builderImpl/flutterBlend";
+import { getMixed } from "../host";
 
 export const flutterContainer = (
   node: SceneNode,
@@ -138,7 +139,7 @@ const getDecoration = (
     shapeDecorationBorder = generatePolygonBorder(node);
   } else if (node.type === "ELLIPSE") {
     shapeDecorationBorder = generateOvalBorder(node);
-  } else if ("strokeWeight" in node && node.strokeWeight !== figma.mixed) {
+  } else if ("strokeWeight" in node && node.strokeWeight !== getMixed()) {
     shapeDecorationBorder = skipDefaultProperty(
       generateRoundedRectangleBorder(node),
       "RoundedRectangleBorder()",
@@ -217,7 +218,7 @@ const generateStarBorder = (node: StarNode): string => {
   const innerRadiusRatio = node.innerRadius;
   const cornerRadius = node.cornerRadius;
 
-  const pointRounding = cornerRadius === figma.mixed ? 0 : cornerRadius;
+  const pointRounding = cornerRadius === getMixed() ? 0 : cornerRadius;
   const valleyRounding = 0; // Assuming no valley rounding, modify if needed
   const rotation = 0; // Assuming no rotation, modify if needed
   const squash = 0; // Assuming no squash, modify if needed

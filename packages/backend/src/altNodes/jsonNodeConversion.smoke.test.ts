@@ -121,4 +121,31 @@ describe("default conversion pipeline outside the Figma plugin sandbox", () => {
       nodesToJSON([{ id: frameDocument.id }], settings),
     ).rejects.toThrow(/No backend host configured/);
   });
+
+  it("does not corrupt a cached document when converting the same node twice", async () => {
+    // A REST-backed host commonly caches the parsed document and returns
+    // the same object reference on every call — conversion must not mutate
+    // that shared object, or a second conversion of the same node would
+    // see the first conversion's already-transformed output as its input.
+    const cachedDocument = structuredClone(frameDocument);
+    const cachingHost: BackendHost = {
+      ...restBackedHost,
+      getNodeDocument: async (id) => {
+        if (id === cachedDocument.id) return cachedDocument as any;
+        throw new Error(`No fixture document for node ${id}`);
+      },
+    };
+
+    setBackendHost(cachingHost);
+    try {
+      const first = await nodesToJSON([{ id: cachedDocument.id }], settings);
+      const second = await nodesToJSON([{ id: cachedDocument.id }], settings);
+
+      expect(second).toEqual(first);
+      expect(cachedDocument.type).toBe("FRAME");
+      expect(cachedDocument.children).toHaveLength(1);
+    } finally {
+      setBackendHost(null);
+    }
+  });
 });

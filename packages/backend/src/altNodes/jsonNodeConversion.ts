@@ -613,17 +613,19 @@ export const nodesToJSON = async (
   // First get the JSON representation of nodes with rotation handling
   const nodeResults = await Promise.all(
     nodes.map(async (node) => {
-      // Fetch the REST document for this node
-      const nodeDoc = (await getBackendHost().getNodeDocument?.(
-        node.id,
-      )) as any;
-      if (!nodeDoc) {
+      // Fetch the REST document for this node. Conversion mutates the
+      // document in place (type, rotation, computed geometry, children) —
+      // clone it first so a host that returns a cached/shared object isn't
+      // corrupted by this or a later conversion of the same node.
+      const fetchedDoc = await getBackendHost().getNodeDocument?.(node.id);
+      if (!fetchedDoc) {
         throw new Error(
           `No backend host getNodeDocument() available for node ${node.id}. ` +
             "Call setBackendHost() with a host that implements it before " +
             "running nodesToJSON() outside the Figma plugin sandbox.",
         );
       }
+      const nodeDoc = structuredClone(fetchedDoc) as any;
 
       let nodeCumulativeRotation = 0;
 
@@ -644,14 +646,6 @@ export const nodesToJSON = async (
       };
     }),
   );
-
-  if (nodeResults.length > 0) {
-    console.log("[debug] initial node summary", {
-      id: nodeResults[0].nodeDoc.id,
-      type: nodeResults[0].nodeDoc.type,
-      name: nodeResults[0].nodeDoc.name,
-    });
-  }
 
   console.log(
     `[benchmark][inside nodesToJSON] JSON_REST_V1 export: ${Date.now() - exportJsonStart}ms`,

@@ -6,11 +6,13 @@
  * `setBackendHost()` once before running any conversion.
  */
 
-/** Options accepted by {@link BackendHost.getNodeExport}. */
-export interface ExportRequest {
-  format?: string;
-  constraint?: { type: string; value: number };
-}
+/**
+ * Options accepted by {@link BackendHost.getNodeExport} — the same
+ * discriminated union `figma.*.exportAsync()` accepts, so a host
+ * implementation gets exhaustive `format` checking for free and this
+ * package never needs to cast a request past the type checker.
+ */
+export type ExportRequest = ExportSettings | ExportSettingsSVGString;
 
 /**
  * Everything the conversion path needs from a live Figma document, made
@@ -47,7 +49,13 @@ function defaultHost(): BackendHost | null {
           `Node ${id} doesn't have an exportAsync() function.`,
         );
       }
-      return node.exportAsync(settings as ExportSettings);
+      // exportAsync is overloaded on the SVG_STRING/ExportSettings split
+      // (string vs. Uint8Array return); narrowing on `format` — rather than
+      // casting — is what selects the right overload here.
+      if (settings.format === "SVG_STRING") {
+        return node.exportAsync(settings);
+      }
+      return node.exportAsync(settings);
     },
     getVariableName: async (id) =>
       (await figma.variables.getVariableByIdAsync(id))?.name ?? null,

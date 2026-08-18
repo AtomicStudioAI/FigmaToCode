@@ -10,6 +10,7 @@ import {
   commonLineHeight,
 } from "../common/commonTextHeightSpacing";
 import { HTMLSettings, StyledTextSegmentSubset } from "types";
+import { getMixed } from "../host";
 import {
   cssCollection,
   generateUniqueClassName,
@@ -136,7 +137,7 @@ export class HtmlTextBuilder extends HtmlDefaultBuilder {
   }
 
   fontSize(node: TextNode, isUI = false): this {
-    if (node.fontSize !== figma.mixed) {
+    if (node.fontSize !== getMixed()) {
       const value = isUI ? Math.min(node.fontSize, 24) : node.fontSize;
       this.addStyles(formatWithJSX("font-size", this.isJSX, value));
     }

@@ -1,6 +1,7 @@
 import { numberToFixedString } from "../../common/numToAutoFixed";
 import { retrieveTopFill } from "../../common/retrieveFill";
 import { GradientPaint, Paint } from "../../api_types";
+import { getMixed } from "../../host";
 
 /**
  * Helper to process a color with variable binding if present
@@ -240,7 +241,7 @@ export const htmlDiamondGradient = (fill: GradientPaint) => {
 export const buildBackgroundValues = (
   paintArray: ReadonlyArray<Paint> | PluginAPI["mixed"],
 ): string => {
-  if (paintArray === figma.mixed) {
+  if (paintArray === getMixed()) {
     return "";
   }
 

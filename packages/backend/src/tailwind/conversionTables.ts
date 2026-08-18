@@ -3,6 +3,7 @@ import { numberToFixedString } from "../common/numToAutoFixed";
 import { localTailwindSettings } from "./tailwindMain";
 import { config } from "./tailwindConfig";
 import { rgbTo6hex } from "../common/color";
+import { getBackendHost } from "../host";
 
 export const nearestValue = (goal: number, array: Array<number>): number => {
   return array.reduce((prev, curr) => {
@@ -160,11 +161,16 @@ export const nearestColorFromRgb = (color: RGB) => {
   return { name, value };
 };
 
+/**
+ * Turns a bound Figma Variable ID into a Tailwind-safe class name fragment,
+ * falling back to a sanitized form of the ID itself if the variable's name
+ * can't be resolved (e.g. `getVariableName` isn't implemented by the host).
+ */
 export const variableToColorName = async (id: string) => {
+  const name = await getBackendHost().getVariableName?.(id);
   return (
-    (await figma.variables.getVariableByIdAsync(id))?.name
-      .replaceAll("/", "-")
-      .replaceAll(" ", "-") || id.toLowerCase().replaceAll(":", "-")
+    name?.replaceAll("/", "-").replaceAll(" ", "-") ||
+    id.toLowerCase().replaceAll(":", "-")
   );
 };
 

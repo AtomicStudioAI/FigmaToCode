@@ -14,6 +14,7 @@ import { TailwindDefaultBuilder } from "./tailwindDefaultBuilder";
 import { config } from "./tailwindConfig";
 import { StyledTextSegmentSubset } from "types";
 import { localTailwindSettings } from "./tailwindMain";
+import { getMixed } from "../host";
 
 export class TailwindTextBuilder extends TailwindDefaultBuilder {
   getTextSegments(node: TextNode): {
@@ -166,7 +167,7 @@ export class TailwindTextBuilder extends TailwindDefaultBuilder {
    * example: italic
    */
   fontStyle(node: TextNode): this {
-    if (node.fontName !== figma.mixed) {
+    if (node.fontName !== getMixed()) {
       const lowercaseStyle = node.fontName.style.toLowerCase();
 
       if (lowercaseStyle.match("italic")) {

@@ -1,4 +1,5 @@
 import { CornerRadius } from "types";
+import { getMixed } from "../host";
 
 export const getCommonRadius = (node: SceneNode): CornerRadius => {
   if ("rectangleCornerRadii" in node) {
@@ -22,7 +23,7 @@ export const getCommonRadius = (node: SceneNode): CornerRadius => {
 
   if (
     "cornerRadius" in node &&
-    node.cornerRadius !== figma.mixed &&
+    node.cornerRadius !== getMixed() &&
     node.cornerRadius
   ) {
     return { all: node.cornerRadius };

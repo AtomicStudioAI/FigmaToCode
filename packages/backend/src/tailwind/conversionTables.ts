@@ -161,6 +161,11 @@ export const nearestColorFromRgb = (color: RGB) => {
   return { name, value };
 };
 
+/**
+ * Turns a bound Figma Variable ID into a Tailwind-safe class name fragment,
+ * falling back to a sanitized form of the ID itself if the variable's name
+ * can't be resolved (e.g. `getVariableName` isn't implemented by the host).
+ */
 export const variableToColorName = async (id: string) => {
   const name = await getBackendHost().getVariableName?.(id);
   return (

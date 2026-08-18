@@ -3,7 +3,7 @@ import { getBackendHost } from "../host";
 
 let isRunning = false;
 
-/*
+/**
  * This is a wrapper for exportAsync() This allows us to pass a message to the UI every time
  * this rather costly operation gets run so that it can display a loading message. This avoids
  * showing a loading message every time anything in the UI changes and only showing it when

@@ -22,8 +22,10 @@ export const exportAsyncProxy = async <
     await new Promise((resolve) => setTimeout(resolve, 30));
   }
 
-  const result = await getBackendHost().getNodeExport(node.id, settings);
-
-  isRunning = false;
-  return result as T;
+  try {
+    const result = await getBackendHost().getNodeExport(node.id, settings);
+    return result as T;
+  } finally {
+    isRunning = false;
+  }
 };

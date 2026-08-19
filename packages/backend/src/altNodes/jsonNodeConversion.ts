@@ -257,6 +257,24 @@ function adjustChildrenOrder(node: any) {
 }
 
 /**
+ * True when a node's HUG sizing has nothing to hug — an empty frame, where
+ * HUG-with-no-content is meaningless and falling back to FIXED is correct.
+ *
+ * A TEXT node never has a `children` array (its content is `characters`, a
+ * string, not child elements), so a plain "does it have children" check
+ * reads every TEXT node as having nothing to hug and forces it to FIXED —
+ * wrong, since text hugs its own characters. TEXT is therefore never
+ * "meaningless" here regardless of `children`.
+ */
+export function hugSizingIsMeaningless(node: {
+  type: string;
+  children?: unknown[];
+}): boolean {
+  if (node.type === "TEXT") return false;
+  return !Array.isArray(node.children) || node.children.length === 0;
+}
+
+/**
  * Recursively process a JSON node to fill in data the REST export doesn't
  * carry. This now includes the functionality from convertNodeToAltNode.
  * Operates purely on the JSON tree — the two pieces of data that used to
@@ -519,17 +537,16 @@ const processNodePair = async (
     jsonNode.counterAxisAlignItems = "MIN";
   }
 
-  // If layout sizing is HUG but there are no children, set it to FIXED
-  const hasChildren =
-    "children" in jsonNode &&
-    jsonNode.children &&
-    Array.isArray(jsonNode.children) &&
-    jsonNode.children.length > 0;
-
-  if (jsonNode.layoutSizingHorizontal === "HUG" && !hasChildren) {
+  if (
+    jsonNode.layoutSizingHorizontal === "HUG" &&
+    hugSizingIsMeaningless(jsonNode)
+  ) {
     jsonNode.layoutSizingHorizontal = "FIXED";
   }
-  if (jsonNode.layoutSizingVertical === "HUG" && !hasChildren) {
+  if (
+    jsonNode.layoutSizingVertical === "HUG" &&
+    hugSizingIsMeaningless(jsonNode)
+  ) {
     jsonNode.layoutSizingVertical = "FIXED";
   }
 
